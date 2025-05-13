@@ -9,10 +9,17 @@
                 <div class="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center text-white text-3xl font-bold">
                     {{ profile_user.username|first|upper }}
                 </div>
-                <div>
+                <div class="flex-1">
                     <h1 class="text-2xl font-bold text-gray-900">{{ profile_user.username }}</h1>
                     <p class="text-gray-500">{{ profile_user.profile.get_role_display }}</p>
                 </div>
+                {% if request.user != profile_user %}
+                <div>
+                    <a href="{% url 'start_conversation' profile_user.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                        Message
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
 

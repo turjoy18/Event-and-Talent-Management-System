@@ -33,10 +33,17 @@
                 {% endif %}
             </div>
             <div class="mt-4 max-w-md mx-auto flex justify-center">
+                {% if user.is_authenticated %}
                 <a href="{% url 'user_list' %}" 
                 class="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300">
                     Browse performers and organizers
                 </a>
+                {% else %}
+                <a href="{% url 'login' %}" 
+                class="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300">
+                    Log in to browse performers and organizers
+                </a>
+                {% endif %}
             </div>
         </div>
     </div>
