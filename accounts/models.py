@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+import random
 
 # Create your models here.
 
@@ -14,6 +15,7 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     bio = models.TextField(max_length=500, blank=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
     email_notifications = models.BooleanField(default=True)
     application_updates = models.BooleanField(default=True)
     show_profile = models.BooleanField(default=True)
@@ -22,6 +24,11 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s profile"
+
+    def generate_random_rating(self):
+        if self.role == 'performer' and self.rating is None:
+            self.rating = round(random.uniform(3.0, 5.0), 1)
+            self.save()
 
 class Conversation(models.Model):
     participants = models.ManyToManyField(User, related_name='conversations')
@@ -93,7 +100,9 @@ def create_user_profile(sender, instance, created, **kwargs):
     if created:
         # Get the role from the form data if available
         role = getattr(instance, '_role', 'performer')  # Default to performer if not set
-        Profile.objects.create(user=instance, role=role)
+        profile = Profile.objects.create(user=instance, role=role)
+        if role == 'performer':
+            profile.generate_random_rating()
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
@@ -104,6 +113,8 @@ def save_user_profile(sender, instance, **kwargs):
         role = getattr(instance, '_role', 'performer')  # Default to performer if not set
         profile.role = role
         profile.save()
+        if role == 'performer':
+            profile.generate_random_rating()
 
 class CalendarEvent(models.Model):
     EVENT_TYPES = [

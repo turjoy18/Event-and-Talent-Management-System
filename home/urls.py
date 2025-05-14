@@ -19,4 +19,5 @@ urlpatterns = [
     path('availability/json/', views.availability_json, name='availability_json'),
     path('availability/json/<str:username>/', views.availability_json, name='availability_json_user'),
     path('availability/create/', views.create_availability, name='create_availability'),
+    path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
 ]

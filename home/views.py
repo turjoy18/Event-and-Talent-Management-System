@@ -1,14 +1,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.utils import timezone
-from .models import Event, Category, Venue, EventTalent, EventApplication, Availability
-from django.db.models import Q
+from .models import Event, Category, Venue, EventTalent, EventApplication, Availability, WebsiteAnalytics, UserActivity
+from django.db.models import Q, Count
+from django.db.models.functions import TruncDate
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.urls import reverse
 from accounts.utils import create_notification
+from accounts.models import Profile
 
 # Create your views here.
 
@@ -445,3 +447,79 @@ def create_availability(request):
         )
         return JsonResponse({'success': True, 'id': avail.id})
     return JsonResponse({'success': False}, status=400)
+
+def is_admin(user):
+    return user.is_authenticated and user.is_staff
+
+@user_passes_test(is_admin)
+def admin_dashboard(request):
+    # Get or create today's analytics
+    today = timezone.now().date()
+    analytics, created = WebsiteAnalytics.objects.get_or_create(date=today)
+    
+    # Update analytics
+    analytics.total_users = User.objects.count()
+    analytics.total_events = Event.objects.count()
+    analytics.total_applications = EventApplication.objects.count()
+    analytics.active_events = Event.objects.filter(status='published', date__gte=today).count()
+    analytics.completed_events = Event.objects.filter(date__lt=today).count()
+    
+    # Calculate new items today
+    analytics.new_users_today = User.objects.filter(date_joined__date=today).count()
+    analytics.new_events_today = Event.objects.filter(created_at__date=today).count()
+    analytics.new_applications_today = EventApplication.objects.filter(created_at__date=today).count()
+    
+    analytics.save()
+    
+    # Get active tab
+    active_tab = request.GET.get('tab', 'overview')
+    
+    context = {
+        'active_tab': active_tab,
+        'analytics': analytics,
+        'recent_activities': UserActivity.objects.all()[:10],
+    }
+    
+    # Add tab-specific data
+    if active_tab == 'users':
+        context['users'] = User.objects.select_related('profile').all()
+    elif active_tab == 'events':
+        context['events'] = Event.objects.select_related('organizer').all()
+    elif active_tab == 'reports':
+        # Get data for charts
+        last_30_days = timezone.now() - timedelta(days=30)
+        
+        # User growth data
+        user_growth = User.objects.filter(
+            date_joined__gte=last_30_days
+        ).annotate(
+            date=TruncDate('date_joined')
+        ).values('date').annotate(
+            count=Count('id')
+        ).order_by('date')
+        
+        # Event statistics
+        event_stats = Event.objects.filter(
+            created_at__gte=last_30_days
+        ).annotate(
+            date=TruncDate('created_at')
+        ).values('date').annotate(
+            count=Count('id')
+        ).order_by('date')
+        
+        # Application trends
+        application_trends = EventApplication.objects.filter(
+            created_at__gte=last_30_days
+        ).annotate(
+            date=TruncDate('created_at')
+        ).values('date').annotate(
+            count=Count('id')
+        ).order_by('date')
+        
+        context.update({
+            'user_growth': list(user_growth),
+            'event_stats': list(event_stats),
+            'application_trends': list(application_trends)
+        })
+    
+    return render(request, 'home/admin_dashboard.html', context)

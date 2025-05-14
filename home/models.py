@@ -108,3 +108,34 @@ class Availability(models.Model):
 
     def __str__(self):
         return f"{self.user.username} available {self.date} {self.start_time}-{self.end_time}";
+
+class WebsiteAnalytics(models.Model):
+    date = models.DateField(default=timezone.now)
+    total_users = models.IntegerField(default=0)
+    total_events = models.IntegerField(default=0)
+    total_applications = models.IntegerField(default=0)
+    active_events = models.IntegerField(default=0)
+    completed_events = models.IntegerField(default=0)
+    new_users_today = models.IntegerField(default=0)
+    new_events_today = models.IntegerField(default=0)
+    new_applications_today = models.IntegerField(default=0)
+
+    class Meta:
+        verbose_name_plural = "Website Analytics"
+        get_latest_by = "date"
+
+    def __str__(self):
+        return f"Analytics for {self.date}"
+
+class UserActivity(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    action = models.CharField(max_length=100)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    details = models.JSONField(default=dict)
+
+    class Meta:
+        verbose_name_plural = "User Activities"
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action} at {self.timestamp}"
