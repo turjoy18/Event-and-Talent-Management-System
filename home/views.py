@@ -7,6 +7,8 @@ from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
+from django.urls import reverse
+from accounts.utils import create_notification
 
 # Create your views here.
 
@@ -31,7 +33,10 @@ def debug_user(request):
         return HttpResponse("User is not authenticated")
 
 def landing_page(request):
-    return render(request, 'home/landing_page.html')
+    context = {}
+    if request.user.is_authenticated:
+        context['notification_count'] = request.user.notifications.filter(is_read=False).count()
+    return render(request, 'home/landing_page.html', context)
 
 def event_list(request, username=None):
     if username:
@@ -149,6 +154,15 @@ def create_event(request):
                 description=descriptions[i]
             )
         
+        # Create notification for the organizer
+        create_notification(
+            user=request.user,
+            notification_type='event',
+            title='Event Created Successfully',
+            message=f'Your event "{event.title}" has been created and is now {event.get_status_display().lower()}.',
+            link=reverse('event_detail', args=[event.id])
+        )
+        
         messages.success(request, 'Event created successfully!')
         return redirect('event_detail', event_id=event.id)
     
@@ -225,11 +239,29 @@ def apply_for_event(request, event_id, talent_id):
         return redirect('event_detail', event_id=event_id)
     
     # Create application
-    EventApplication.objects.create(
+    application = EventApplication.objects.create(
         event=event,
         performer=request.user,
         talent_type=talent_need,
         status='pending'
+    )
+    
+    # Create notification for the performer
+    create_notification(
+        user=request.user,
+        notification_type='application',
+        title='Application Submitted',
+        message=f'You have successfully applied for the position of {talent_need.get_talent_type_display()} in "{event.title}".',
+        link=reverse('event_detail', args=[event.id])
+    )
+    
+    # Create notification for the organizer
+    create_notification(
+        user=event.organizer,
+        notification_type='application',
+        title='New Application Received',
+        message=f'{request.user.username} has applied for the position of {talent_need.get_talent_type_display()} in your event "{event.title}".',
+        link=reverse('event_detail', args=[event.id])
     )
     
     messages.success(request, 'Application submitted successfully!')
@@ -289,8 +321,19 @@ def update_application_status(request, event_id, application_id, new_status):
     
     if request.method == 'POST':
         if new_status in ['accepted', 'rejected']:
+            old_status = application.status
             application.status = new_status
             application.save()
+            
+            # Create notification for the performer
+            create_notification(
+                user=application.performer,
+                notification_type='application',
+                title=f'Application {new_status.title()}',
+                message=f'Your application for {application.talent_type.get_talent_type_display()} in "{event.title}" has been {new_status}.',
+                link=reverse('event_detail', args=[event.id])
+            )
+            
             messages.success(request, f'Application {new_status} successfully.')
         else:
             messages.error(request, 'Invalid status update.')

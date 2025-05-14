@@ -50,47 +50,76 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-    // Scroll to bottom of messages
-    const messagesContainer = document.getElementById('messages-container');
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
 
-    // Handle message form submission
-    const messageForm = document.getElementById('message-form');
-    messageForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        
-        fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Add new message to the container
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'flex justify-end';
-                messageDiv.innerHTML = `
-                    <div class="max-w-[70%] bg-blue-600 text-white rounded-lg px-4 py-2">
-                        <p class="text-sm">${data.message.content}</p>
-                        <p class="text-xs mt-1 text-blue-200">Just now</p>
-                    </div>
-                `;
-                messagesContainer.appendChild(messageDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                
-                // Clear input
-                this.reset();
-            }
-        })
-        .catch(error => console.error('Error:', error));
+        // Scroll to bottom of messages
+        const messagesContainer = document.getElementById('messages-container');
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // Handle message form submission
+        const messageForm = document.getElementById('message-form');
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrftoken
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    // Add new message to the container
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'flex justify-end';
+                    messageDiv.innerHTML = `
+                        <div class="max-w-[70%] bg-blue-600 text-white rounded-lg px-4 py-2">
+                            <p class="text-sm">${data.message.content}</p>
+                            <p class="text-xs mt-1 text-blue-200">Just now</p>
+                        </div>
+                    `;
+                    messagesContainer.appendChild(messageDiv);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    
+                    // Clear input
+                    this.reset();
+                } else {
+                    console.error('Error:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to send message. Please try again.');
+            });
+        });
     });
 </script>
-{% endblock %}
 {% endblock %} 

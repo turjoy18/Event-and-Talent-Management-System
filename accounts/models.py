@@ -34,6 +34,24 @@ class Conversation(models.Model):
     def __str__(self):
         return f"Conversation {self.id}"
 
+    @classmethod
+    def get_or_create_conversation(cls, user1, user2):
+        """
+        Get or create a conversation between two users.
+        Returns a tuple of (conversation, created) where created is a boolean
+        specifying whether a new conversation was created.
+        """
+        # Try to find existing conversation
+        conversation = cls.objects.filter(participants=user1).filter(participants=user2).first()
+        
+        if conversation:
+            return conversation, False
+        
+        # Create new conversation
+        conversation = cls.objects.create()
+        conversation.participants.add(user1, user2)
+        return conversation, True
+
 class Message(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')

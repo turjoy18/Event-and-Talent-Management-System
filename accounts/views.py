@@ -5,11 +5,13 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.db.models import Q
 from django.contrib.auth import login, authenticate
+from django.urls import reverse
 from .forms import CustomSignupForm
 from .models import Profile, Conversation, Message, Notification, CalendarEvent
 from home.models import Event, EventApplication, Availability
 from django.utils import timezone
 from types import SimpleNamespace
+from .utils import create_notification
 
 # Create your views here.
 
@@ -45,41 +47,36 @@ def dashboard(request):
         Profile.objects.create(user=request.user)
     
     # Get the active tab from the request, defaulting based on user role
-    active_tab = request.GET.get('tab', 'events' if request.user.profile.role == 'organizer' else 'applications')
+    active_tab = request.GET.get('tab')
+    if not active_tab:
+        if request.user.profile.role == 'organizer':
+            active_tab = 'events'
+        else:
+            active_tab = 'applications'
     
     context = {
         'active_tab': active_tab,
         'user': request.user,
     }
     
-    if active_tab == 'applications':
-        context['applications'] = EventApplication.objects.filter(
-            performer=request.user
-        ).select_related('event', 'talent_type').order_by('-created_at')
-    
-    elif active_tab == 'events':
-        context['events'] = Event.objects.filter(
-            organizer=request.user
-        ).order_by('-created_at')
-    
-    elif active_tab == 'requests':
-        if request.user.profile.role == 'performer':
-            context['requests'] = EventApplication.objects.filter(
-                performer=request.user
-            ).select_related('event').order_by('-created_at')
-        else:
+    # Handle tab content based on user role
+    if request.user.profile.role == 'organizer':
+        if active_tab == 'events':
+            context['events'] = Event.objects.filter(
+                organizer=request.user
+            ).order_by('-created_at')
+        elif active_tab == 'requests':
             context['requests'] = EventApplication.objects.filter(
                 event__organizer=request.user
             ).select_related('performer', 'event').order_by('-created_at')
+    else:  # Performer
+        if active_tab == 'applications':
+            context['applications'] = EventApplication.objects.filter(
+                performer=request.user
+            ).select_related('event', 'talent_type').order_by('-created_at')
     
-    elif active_tab == 'messages':
-        context['conversations'] = request.user.conversations.all()
-        context['unread_count'] = Message.objects.filter(
-            conversation__participants=request.user,
-            is_read=False
-        ).exclude(sender=request.user).count()
-    
-    elif active_tab == 'profile':
+    # Handle profile and settings tabs
+    if active_tab == 'profile':
         if request.method == 'POST':
             username = request.POST.get('username')
             email = request.POST.get('email')
@@ -103,7 +100,6 @@ def dashboard(request):
             
             messages.success(request, 'Profile updated successfully.')
             return redirect('dashboard')
-    
     elif active_tab == 'settings':
         if request.method == 'POST':
             email_notifications = request.POST.get('email_notifications') == 'on'
@@ -151,26 +147,54 @@ def conversation_view(request, conversation_id):
     })
 
 @login_required
-def send_message(request, conversation_id):
+def send_message(request, conversation_id=None, recipient_id=None):
+    if conversation_id:
+        conversation = get_object_or_404(Conversation, id=conversation_id)
+        if request.user not in conversation.participants.all():
+            messages.error(request, 'You do not have permission to send messages in this conversation.')
+            return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+    elif recipient_id:
+        recipient = get_object_or_404(User, id=recipient_id)
+        conversation, created = Conversation.objects.get_or_create_conversation(request.user, recipient)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+    
     if request.method == 'POST':
-        conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
-        content = request.POST.get('content')
+        content = request.POST.get('content', '').strip()
         if content:
             message = Message.objects.create(
                 conversation=conversation,
                 sender=request.user,
                 content=content
             )
+            
+            # Update conversation timestamp
             conversation.updated_at = timezone.now()
             conversation.save()
+            
+            # Create notifications for all participants except the sender
+            for participant in conversation.participants.exclude(id=request.user.id):
+                create_notification(
+                    user=participant,
+                    notification_type='message',
+                    title='New Message',
+                    message=f'You have a new message from {request.user.username}',
+                    link=reverse('conversation', args=[conversation.id])
+                )
+            
             return JsonResponse({
                 'status': 'success',
                 'message': {
+                    'id': message.id,
                     'content': message.content,
+                    'sender': message.sender.username,
                     'created_at': message.created_at.isoformat()
                 }
             })
-    return JsonResponse({'status': 'error'}, status=400)
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Message content is required'}, status=400)
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
 
 @login_required
 def start_conversation(request, user_id):
@@ -195,7 +219,9 @@ def start_conversation(request, user_id):
 @login_required
 def notifications_view(request):
     notifications = request.user.notifications.all()
-    unread_count = notifications.filter(is_read=False).count()
+    
+    # Mark all notifications as read when the page is viewed
+    request.user.notifications.filter(is_read=False).update(is_read=True)
     
     if request.method == 'POST':
         notification_id = request.POST.get('notification_id')
@@ -206,8 +232,7 @@ def notifications_view(request):
             return JsonResponse({'status': 'success'})
     
     return render(request, 'accounts/notifications.html', {
-        'notifications': notifications,
-        'unread_count': unread_count
+        'notifications': notifications
     })
 
 @login_required
@@ -342,14 +367,11 @@ def delete_calendar_event(request, event_id):
     except CalendarEvent.DoesNotExist:
         return JsonResponse({'status': 'error'}, status=404)
 
-def notifications_view(request):
-    return render(request, 'accounts/notifications.html')
+def about_view(request):
+    return render(request, 'accounts/about.html')
 
 def support_view(request):
     return render(request, 'accounts/support.html')
-
-def about_view(request):
-    return render(request, 'accounts/about.html')
 
 def contact_view(request):
     return render(request, 'accounts/contact.html')

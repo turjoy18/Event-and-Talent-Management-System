@@ -51,7 +51,14 @@
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-4">
                         <a href="{% url 'dashboard' %}" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">Dashboard</a>
                         <a href="{% url 'messages' %}" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">Messages</a>
-                        <a href="{% url 'notifications' %}" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">Notifications</a>
+                        <a href="{% url 'notifications' %}" class="relative inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">
+                            Notifications
+                            {% if notification_count > 0 %}
+                            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                {{ notification_count }}
+                            </span>
+                            {% endif %}
+                        </a>
                         <a href="{% url 'calendar' %}" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">Calendar</a>
                     </div>
                     {% endif %}

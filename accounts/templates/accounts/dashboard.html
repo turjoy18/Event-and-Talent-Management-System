@@ -19,61 +19,29 @@
 
         <!-- Navigation -->
         <nav class="p-4">
-            <ul class="space-y-2">
-                {% if user.profile.role == 'performer' %}
-                    <li>
-                        <a href="?tab=applications" class="block px-4 py-2 rounded {% if active_tab == 'applications' %}bg-blue-50 text-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                            My Applications
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?tab=requests" class="block px-4 py-2 rounded {% if active_tab == 'requests' %}bg-blue-50 text-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                            Performance Requests
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?tab=events" class="block px-4 py-2 rounded {% if active_tab == 'events' %}bg-blue-50 text-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                            My Events
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?tab=requests" class="block px-4 py-2 rounded {% if active_tab == 'requests' %}bg-blue-50 text-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                            Booking Requests
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'calendar' %}" class="block px-4 py-2 rounded text-gray-600 hover:bg-gray-50">
-                            Calendar
-                        </a>
-                    </li>
-                {% elif user.profile.role == 'organizer' %}
-                    <li>
-                        <a href="?tab=events" class="block px-4 py-2 rounded {% if active_tab == 'events' %}bg-blue-50 text-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                            My Events
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?tab=requests" class="block px-4 py-2 rounded {% if active_tab == 'requests' %}bg-blue-50 text-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                            Booking Requests
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'calendar' %}" class="block px-4 py-2 rounded text-gray-600 hover:bg-gray-50">
-                            Calendar
-                        </a>
-                    </li>
-                {% endif %}
-                <li>
-                    <a href="?tab=profile" class="block px-4 py-2 rounded {% if active_tab == 'profile' %}bg-blue-50 text-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                        Edit Profile
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+                <!-- Sidebar -->
+                <div class="divide-y divide-gray-200">
+                    {% if user.profile.role == 'organizer' %}
+                    <a href="?tab=events" class="block px-6 py-4 text-sm font-medium {% if active_tab == 'events' %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                        My Events
                     </a>
-                </li>
-                <li>
-                    <a href="?tab=settings" class="block px-4 py-2 rounded {% if active_tab == 'settings' %}bg-blue-50 text-blue-600{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
-                        Settings
+                    <a href="?tab=requests" class="block px-6 py-4 text-sm font-medium {% if active_tab == 'requests' %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                        Booking Requests
                     </a>
-                </li>
-            </ul>
+                    {% else %}
+                    <a href="?tab=applications" class="block px-6 py-4 text-sm font-medium {% if active_tab == 'applications' %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                        My Applications
+                    </a>
+                    {% endif %}
+                    <a href="?tab=profile" class="block px-6 py-4 text-sm font-medium {% if active_tab == 'profile' %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                        Profile Settings
+                    </a>
+                    <a href="?tab=settings" class="block px-6 py-4 text-sm font-medium {% if active_tab == 'settings' %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                        Account Settings
+                    </a>
+                </div>
+            </div>
         </nav>
     </div>
 
